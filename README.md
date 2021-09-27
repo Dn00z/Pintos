@@ -10,5 +10,4 @@ Pintos labs to tailor for his class. The upstream for this branch comes from
 https://github.com/ryanphuang/PintosM.git. For students in the class, please
 download the release version for this branch at https://github.com/jhu-cs318/pintos.git
 
-this is windows branch
 
