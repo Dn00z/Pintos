@@ -20,9 +20,6 @@
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
-//The sleep list
-struct list sleep_threads_list;
-
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
@@ -40,8 +37,6 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
-  //Initialize sleep_list
-  list_init(&sleep_threads_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -89,46 +84,16 @@ timer_elapsed (int64_t then)
   return timer_ticks () - then;
 }
 
-// bool cmp_waketick(const struct list_elem *first_t, const struct list_elem *second_t, void *aux){
-//   struct thread *first_thread = list_entry (first_t, struct thread, elem);
-//   struct thread *second_thread = list_entry (second_t, struct thread, elem);
-
-//   return first_thread->waketick < second_thread->waketick;
-// }
-
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
 void
 timer_sleep (int64_t ticks) 
 {
-  //int64_t start = timer_ticks ();
-
-  struct thread* current_thread;
-	enum intr_level current_level;
+  int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
-  //while (timer_elapsed (start) < ticks) 
-  //  thread_yield ();
-
-  int64_t start = timer_ticks();
-
-  if (timer_elapsed(start)<ticks)
-    thread_sleep(start+ticks);
-
-
-  
-}
-
-// add thread into sleep list
-
-void thread_sleep (int64_t ticks)
-{
-  enum intr_level pre_level = intr_disable();
-  struct thread *curr_thread = thread_current();
-  curr_thread->tick_time = ticks;
-  list_insert_ordered(&sleep_threads_list, &curr_thread->elem, compare_ticktime, NULL);
-  thread_block();
-  intr_set_level(pre_level); 
+  while (timer_elapsed (start) < ticks) 
+    thread_yield ();
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -157,6 +122,7 @@ timer_nsleep (int64_t ns)
 
 /* Busy-waits for approximately MS milliseconds.  Interrupts need
    not be turned on.
+
    Busy waiting wastes CPU cycles, and busy waiting with
    interrupts off for the interval between timer ticks or longer
    will cause timer ticks to be lost.  Thus, use timer_msleep()
@@ -169,6 +135,7 @@ timer_mdelay (int64_t ms)
 
 /* Sleeps for approximately US microseconds.  Interrupts need not
    be turned on.
+
    Busy waiting wastes CPU cycles, and busy waiting with
    interrupts off for the interval between timer ticks or longer
    will cause timer ticks to be lost.  Thus, use timer_usleep()
@@ -181,6 +148,7 @@ timer_udelay (int64_t us)
 
 /* Sleeps execution for approximately NS nanoseconds.  Interrupts
    need not be turned on.
+
    Busy waiting wastes CPU cycles, and busy waiting with
    interrupts off for the interval between timer ticks or longer
    will cause timer ticks to be lost.  Thus, use timer_nsleep()
@@ -202,24 +170,8 @@ timer_print_stats (void)
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
-  struct list_elem *head;
-	struct thread *h_thread;
-
   ticks++;
-  thread_tick();
-
-  while(!list_empty(&sleep_threads_list))
-	{
-		head = list_front(&sleep_threads_list);
-	  h_thread = list_entry (head, struct thread, elem);
-
-	  	if(h_thread->tick_time > ticks )
-	  		break;
-
-	  	list_remove (head);
-	  	thread_unblock(h_thread);
-	}
-
+  thread_tick ();
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
@@ -243,6 +195,7 @@ too_many_loops (unsigned loops)
 
 /* Iterates through a simple loop LOOPS times, for implementing
    brief delays.
+
    Marked NO_INLINE because code alignment can significantly
    affect timings, so that if this function was inlined
    differently in different places the results would be difficult
