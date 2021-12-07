@@ -51,12 +51,12 @@ syscall_handler (struct intr_frame *f UNUSED)
   {
 
   case SYS_EXEC: {
-    char* cmd_line;
+    const char* cmd_line;
     
     if(isValidUser(f->esp + 4, &cmd_line, sizeof(cmd_line)) == -1) {
       exit(-1);
     }
-    f->eax =  exec(cmd_line);
+    exec(cmd_line);
     break;
   }
   case SYS_HALT:{
@@ -109,7 +109,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       exit(-1);
     }
 
-    if(isValidUser(f->esp + 4, &position, sizeof(position)) == -1) {
+    if(isValidUser(f->esp + 8, &position, sizeof(position)) == -1) {
       exit(-1);
     }
     seek(fd, position);
@@ -242,14 +242,14 @@ int isValidUser(void* pointer, void* destination, size_t size) {
     if(value == -1){
       exit(-1);
     }
-    *(char*) (destination + j) = value&0xff;
+    *(char*) (destination + j) = value & 0xff;
   }
   return (int) size;
 }
 
 
 int write(int fd, const void *buffer, unsigned size){
-  if(fd==0 || fd == 2) return -1;
+  // if(fd==0 || fd == 2) return -1;
   
   if(fd == 1){
     putbuf((const char*)buffer, size);
@@ -287,7 +287,7 @@ int wait(pid_t pid) {
 
 void seek(int fd, unsigned position) {
   struct file_descripter* file_des = getFileDes(fd);
-  if(file_des == NULL) return -1;
+  if(file_des == NULL) return;
   lock_acquire(&locker);
   file_seek(file_des->file, position);
   lock_release(&locker);
@@ -348,7 +348,7 @@ bool remove(const char *file){
 
 void close(int fd) {
   struct file_descripter* file_des = getFileDes(fd);
-  if(file_des == NULL) return -1;
+  if(file_des == NULL) return;
   lock_acquire(&locker);
   file_close(file_des->file);
   list_remove(&file_des->elem);
@@ -427,10 +427,10 @@ pid_t exec(const char* cmd_line) {
 	{
 		return -1;
 	}
-  
+  lock_acquire(&locker);
   /* Get and return the PID of the process that is created. */
 	pid_t child_tid = process_execute(cmd_line);
-  
+  lock_release(&locker);
 	return child_tid;
 }
 
