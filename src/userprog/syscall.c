@@ -9,6 +9,7 @@
 #include "threads/synch.h"
 #include "filesys/filesys.h"
 #include "threads/malloc.h"
+#include "threads/vaddr.h"
 
 typedef int pid_t;
 
@@ -30,6 +31,8 @@ void close(int fd);
 int open(const char *file);
 int read(int fd, void *buffer, unsigned size);
 pid_t exec(const char* cmd_line);
+int isValidUser(void* pointer, void* destination, size_t size);
+int wait(pid_t pid);
 
 
 
@@ -56,7 +59,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     if(isValidUser(f->esp + 4, &cmd_line, sizeof(cmd_line)) == -1) {
       exit(-1);
     }
-    exec(cmd_line);
+    f->eax =  exec(cmd_line);
     break;
   }
   case SYS_HALT:{
@@ -119,6 +122,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   case SYS_CREATE:{
     char* file;
     unsigned initial_size;
+
     if(isValidUser(f->esp + 4, &file, sizeof(file)) == -1) {
       exit(-1);
     }
@@ -173,7 +177,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       exit(-1);
     }
 
-    f->eax = (uint32_t)(fd, buffer, size);
+    f->eax = (uint32_t)read(fd, buffer, size);
     break;
   }
 
@@ -212,6 +216,9 @@ syscall_handler (struct intr_frame *f UNUSED)
 static int
 get_user (const uint8_t *uaddr)
 {
+
+    if ((void*)uaddr >= PHYS_BASE)
+      return -1; 
     int result;
     asm ("movl $1f, %0; movzbl %1, %0; 1:"
         : "=&a" (result) : "m" (*uaddr));
@@ -250,6 +257,8 @@ int isValidUser(void* pointer, void* destination, size_t size) {
 
 int write(int fd, const void *buffer, unsigned size){
   // if(fd==0 || fd == 2) return -1;
+
+  if (get_user(buffer) == -1 || get_user(buffer + size) == -1) exit(-1);  
   
   if(fd == 1){
     putbuf((const char*)buffer, size);
@@ -274,7 +283,8 @@ int write(int fd, const void *buffer, unsigned size){
 void exit (int status)
 {
     struct thread *cur = thread_current (); 
-    /* Save exit status at process descriptor */
+    
+    cur->t_pcb->exitcode = status;
     printf("%s: exit(%d)\n" , cur -> name , status);
     thread_exit();
 } 
@@ -332,6 +342,7 @@ unsigned tell(int fd){
 
 
 bool create(const char *file, unsigned initial_size){
+  if (get_user(file) == -1) exit(-1); 
   lock_acquire(&locker);
   bool file_status = filesys_create(file, initial_size);
   lock_release(&locker);
@@ -358,7 +369,7 @@ void close(int fd) {
 
 int open(const char *file){
 
-  if(!file) return -1;
+  if(file == NULL) return -1;
 
   lock_acquire(&locker);
 
@@ -379,7 +390,7 @@ int open(const char *file){
   if(list_empty(file_list)){
     new_file->id = 3;
   }else{
-    struct file_descripter* file_des = list_entry(list_end(file_list), struct file_descripter, elem);
+    struct file_descripter* file_des = list_entry(list_back(file_list), struct file_descripter, elem);
     new_file->id = file_des->id + 1;
   }
   
@@ -391,6 +402,9 @@ int open(const char *file){
 
 
 int read(int fd, void *buffer, unsigned size){
+
+  if (get_user(buffer) == -1 || get_user(buffer + size - 1) == -1) exit(-1); 
+
   lock_acquire(&locker);
   if (fd == 0)
   {
@@ -418,11 +432,19 @@ int read(int fd, void *buffer, unsigned size){
   }
 
   lock_release(&locker);
-
+  ////
   return -1;
 }
 
 pid_t exec(const char* cmd_line) {
+
+  int i = 0; 
+  while (i < sizeof(cmd_line)) { 
+    if (get_user(cmd_line + i) == -1){ 
+      exit(-1); 
+    } 
+    i++; 
+  } 
   if(!cmd_line)
 	{
 		return -1;
@@ -437,4 +459,4 @@ pid_t exec(const char* cmd_line) {
 
 
 
-
+ //comment
