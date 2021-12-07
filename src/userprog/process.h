@@ -27,8 +27,7 @@ struct  process_control_block
   struct list_elem elem;    
   struct thread* parent_thread;   
   bool waiting;            
-  bool exited;             
-//   bool orphan;              
+  bool exited;                     
   int32_t exitcode;        
 
   struct semaphore sema_initialization; 

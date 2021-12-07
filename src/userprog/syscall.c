@@ -13,6 +13,7 @@
 
 typedef int pid_t;
 
+//global lock to use when accessing file
 struct lock locker;
 
 static void syscall_handler (struct intr_frame *);
@@ -50,6 +51,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   if(isValidUser(f->esp, &number, sizeof(number)) == -1) {
     exit(-1);
   }
+  //call the system call using the system call number.
   switch (number)
   {
 
@@ -59,11 +61,11 @@ syscall_handler (struct intr_frame *f UNUSED)
     if(isValidUser(f->esp + 4, &cmd_line, sizeof(cmd_line)) == -1) {
       exit(-1);
     }
-    f->eax =  exec(cmd_line);
+    f->eax =  exec(cmd_line); //create child process and execute program
     break;
   }
   case SYS_HALT:{
-    halt();
+    halt(); //shutdown pintos
     break;
   }
   
@@ -92,7 +94,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     if(isValidUser(f->esp + 4, &status, sizeof(status)) == -1) {
       exit(-1);
     }
-    exit(status);
+    exit(status); //exit process
     break;
   }
 
@@ -101,7 +103,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     if(isValidUser(f->esp + 4, &pid, sizeof(pid)) == -1) {
       exit(-1);
     }
-    f->eax = (uint32_t)wait(pid);
+    f->eax = (uint32_t)wait(pid); //wait for termination of child process whose process id is pid
     break;
   }
 
@@ -129,7 +131,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     if(isValidUser(f->esp + 8, &initial_size, sizeof(initial_size)) == -1) {
       exit(-1);
     }
-    f->eax = create(file, initial_size);
+    f->eax = create(file, initial_size); //create file which have size of initial_size
     break;
   }
 
@@ -138,7 +140,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     if(isValidUser(f->esp + 4, &file, sizeof(file)) == -1) {
       exit(-1);
     }
-    f->eax = remove(file);
+    f->eax = remove(file); //remove file whose name is file
     break;
   }
 
@@ -147,7 +149,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     if(isValidUser(f->esp + 4, &file, sizeof(file)) == -1) {
       exit(-1);
     }
-    f->eax = (uint32_t)open(file);
+    f->eax = (uint32_t)open(file); //open the file corresponds to path in “file”.
     break;
   }
   
@@ -156,7 +158,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     if(isValidUser(f->esp + 4, &fd, sizeof(fd)) == -1) {
       exit(-1);
     }
-    f->eax = (uint32_t)filesize(fd);
+    f->eax = (uint32_t)filesize(fd); //return the size, in bytes, of the file open as fd
     break;
   }
 
@@ -177,7 +179,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       exit(-1);
     }
 
-    f->eax = (uint32_t)read(fd, buffer, size);
+    f->eax = (uint32_t)read(fd, buffer, size); //read size bytes from the file open as fd into buffer.
     break;
   }
 
@@ -209,10 +211,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 }
 
 
-/* Reads a byte at user virtual address UADDR.
-   UADDR must be below PHYS_BASE.
-   Returns the byte value if successful, -1 if a segfault
-   occurred. */
+
 static int
 get_user (const uint8_t *uaddr)
 {
@@ -225,9 +224,7 @@ get_user (const uint8_t *uaddr)
     return result;
 }
 
-/* Writes BYTE to user address UDST.
-   UDST must be below PHYS_BASE. 
-   Returns true if successful, false if a segfault occurred.*/
+
 static bool
 put_user (uint8_t *udst, uint8_t byte)
 {
@@ -432,7 +429,6 @@ int read(int fd, void *buffer, unsigned size){
   }
 
   lock_release(&locker);
-  ////
   return -1;
 }
 

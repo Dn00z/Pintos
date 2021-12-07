@@ -80,10 +80,10 @@ start_process (void *file_name_)
   
   char *parse_args[50];
   char counter = 0;
-  char *token,*save_ptr;
+  char *token;
+  char *save_ptr;
 
-  for (token = strtok_r(file_name," ",&save_ptr);token != NULL;
-  token = strtok_r(NULL," ",&save_ptr)) {
+  for (token = strtok_r(file_name," ",&save_ptr);token != NULL; token = strtok_r(NULL," ",&save_ptr)) {
       parse_args[counter++]=token;
   }
 
